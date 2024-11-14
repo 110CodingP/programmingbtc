@@ -98,6 +98,9 @@ impl Add for EllipticPoint {
         }
 
         if self == other {
+            if self.y.unwrap() == 0 {
+                return EllipticPoint::new(None, None, self.a, self.b);
+            }
             // If the points are the same, then we need to find the tangent slope
             let slope = self.tangent_slope().unwrap();
             let x_3 = slope.pow(2) - (2 * self.x.unwrap());
