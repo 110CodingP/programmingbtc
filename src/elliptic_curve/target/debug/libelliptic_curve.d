@@ -1,0 +1,1 @@
+/Users/bolajiahmad/Documents/projects/demo/rust/programmingbtc/finite_fields/elliptic_curve/target/debug/libelliptic_curve.rlib: /Users/bolajiahmad/Documents/projects/demo/rust/programmingbtc/finite_fields/elliptic_curve/src/lib.rs

@@ -3,5 +3,9 @@
 version = 3
 
 [[package]]
+name = "elliptic_curve"
+version = "0.1.0"
+
+[[package]]
 name = "finite_fields"
 version = "0.1.0"
