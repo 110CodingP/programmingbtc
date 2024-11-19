@@ -1,0 +1,7 @@
+[package]
+name = "ec_cryptography"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+finite_fields = { path = "../finite_fields" }
