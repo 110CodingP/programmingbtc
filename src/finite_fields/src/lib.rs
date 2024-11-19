@@ -5,28 +5,29 @@ use helpers::is_prime;
 mod helpers;
 
 /// A FieldElement is a representation of an element in a finite field.
-struct FieldElement {
+#[derive(Clone)]
+pub struct FieldElement {
     num: i32,
-    prime: i8,
+    prime: i16,
 }
 
 impl FieldElement {
     /// Creates a new field element 
-    fn new(num: i32, prime: i8) -> FieldElement {
+    pub fn new(num: i32, prime: i16) -> FieldElement {
         assert!(is_prime(prime.into()), "Number must be prime");
 
         FieldElement { num: num % prime as i32, prime }
     }
 
-    fn num(&self) -> i32 {
+    pub fn num(&self) -> i32 {
         self.num
     }
 
-    fn order(&self) -> i8 {
+    pub fn order(&self) -> i16 {
         self.prime
     }
 
-    fn pow(&self, exponent: i32) -> FieldElement {
+    pub fn pow(&self, exponent: i32) -> FieldElement {
         let expo = if exponent > 0 {
             exponent
         } else { 

@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "ec_cryptography"
+version = "0.1.0"
+dependencies = [
+ "finite_fields",
+]
+
+[[package]]
 name = "elliptic_curve"
 version = "0.1.0"
 
