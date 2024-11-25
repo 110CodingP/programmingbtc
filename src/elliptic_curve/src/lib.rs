@@ -1,28 +1,34 @@
 use std::{fmt::Debug, ops::Add};
 
+use rug::Integer;
+use rug::ops::Pow;
+
 /// While coding an elliptic curve, we are mostly interested in the Point on the curve.
 /// The points suffice because they will form a finite field which is useful in ECC operations
 #[derive(Clone)]
 pub struct EllipticPoint {
-    x: Option<i64>,
-    y: Option<i64>,
+    x: Option<Integer>,
+    y: Option<Integer>,
     // a and b are constants of the EC
-    a: i64,
-    b: i64,
+    a: Integer,
+    b: Integer,
 }
 
 impl Debug for EllipticPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "EllipticPoint({}, {})", self.x.unwrap_or(0), self.y.unwrap_or(0))
+        write!(f, "EllipticPoint({}, {})", 
+            self.x.as_ref().unwrap_or(&Integer::ZERO), 
+            self.y.as_ref().unwrap_or(&Integer::ZERO)
+        )
     }
 }
 
 impl EllipticPoint {
     pub fn new(
-        x: Option<i64>,
-        y: Option<i64>,
-        a: i64,
-        b: i64,
+        x: Option<Integer>,
+        y: Option<Integer>,
+        a: Integer,
+        b: Integer,
     ) -> EllipticPoint {
         // If x and y are both None, then we are defining the Identity Point
         if x.is_none() && y.is_none() {
@@ -40,7 +46,10 @@ impl EllipticPoint {
         if self.x.is_none() || self.y.is_none() {
             return true;
         }
-        self.y.unwrap().pow(2) == (self.x.unwrap().pow(3)) + (self.a * self.x.unwrap()) + self.b
+        self.y.clone().unwrap().pow(2) == 
+            (self.x.clone().unwrap().pow(3)) + 
+            (self.a.clone() * self.x.clone().unwrap()) + 
+            self.b.clone()
     }
 
     pub fn slope(&self, other: EllipticPoint) -> Option<i64> {
@@ -49,8 +58,8 @@ impl EllipticPoint {
             return None;
         }
 
-        let slope = (other.y.unwrap() - self.y.unwrap()) / (other.x.unwrap() - self.x.unwrap());
-        Some(slope)
+        let slope = (other.y.unwrap() - self.y.clone().unwrap()) / (other.x.unwrap() - self.x.clone().unwrap());
+        Some(slope.to_i64_wrapping())
     }
 
     pub fn tangent_slope(&self) -> Option<i64> {
@@ -59,8 +68,8 @@ impl EllipticPoint {
             return None;
         }
 
-        let slope = (3 * self.x.unwrap().pow(2) + self.a) / (2 * self.y.unwrap());
-        Some(slope)
+        let slope: Integer = (3 * self.x.clone().unwrap().pow(2) + self.a.clone()) / (2 * self.y.clone().unwrap());
+        Some(slope.to_i64_wrapping())
     }
 }
 
@@ -98,13 +107,13 @@ impl Add for EllipticPoint {
         }
 
         if self == other {
-            if self.y.unwrap() == 0 {
+            if self.y.clone().unwrap() == 0 {
                 return EllipticPoint::new(None, None, self.a, self.b);
             }
             // If the points are the same, then we need to find the tangent slope
             let slope = self.tangent_slope().unwrap();
-            let x_3 = slope.pow(2) - (2 * self.x.unwrap());
-            let y_3 = (slope * (self.x.unwrap() - x_3)) - self.y.unwrap();
+            let x_3: Integer = slope.pow(2) - (2 * self.x.clone().unwrap());
+            let y_3 = (slope * (self.x.clone().unwrap() - x_3.clone())) - self.y.clone().unwrap();
 
             let point_3 = EllipticPoint::new(Some(x_3), Some(y_3), self.a, self.b);
             return point_3;
@@ -112,9 +121,9 @@ impl Add for EllipticPoint {
 
         // If x1 != x2
         // find x3 = s(exp)2 - x1 - x2
-        let x_3 = self.clone().slope(other.clone()).unwrap().pow(2) - self.x.unwrap() - other.x.unwrap();
+        let x_3 = self.clone().slope(other.clone()).unwrap().pow(2) - self.x.clone().unwrap() - other.x.clone().unwrap();
 
-        let y_3 = self.clone().slope(other.clone()).unwrap() * (self.x.unwrap() - x_3) - self.y.unwrap();
+        let y_3 = self.clone().slope(other.clone()).unwrap() * (self.x.unwrap() - x_3.clone()) - self.y.unwrap();
 
         let point_3 = EllipticPoint::new(Some(x_3), Some(y_3), self.a, self.b);
         point_3
@@ -127,8 +136,18 @@ mod tests {
 
     #[test]
     fn test_inequality() {
-        let a = EllipticPoint::new(Some(3), Some(7), 5, 7);
-        let b = EllipticPoint::new(Some(18), Some(77), 5, 7);
+        let a = EllipticPoint::new(
+            Some(Integer::from(3)), 
+            Some(Integer::from(7)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
+        let b = EllipticPoint::new(
+            Some(Integer::from(18)), 
+            Some(Integer::from(77)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
 
         assert_eq!(a, a, "Points are not the same");
         assert_ne!(a, b, "Points are the same");
@@ -136,9 +155,24 @@ mod tests {
 
     #[test]
     fn test_addition_vertical() {
-        let a = EllipticPoint::new(None, None, 5, 7);
-        let b = EllipticPoint::new(Some(2), Some(5), 5, 7);
-        let c = EllipticPoint::new(Some(2), Some(-5), 5, 7);
+        let a = EllipticPoint::new(
+            None, 
+            None, 
+            Integer::from(5), 
+            Integer::from(7)
+        );
+        let b = EllipticPoint::new(
+            Some(Integer::from(2)), 
+            Some(Integer::from(5)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
+        let c = EllipticPoint::new(
+            Some(Integer::from(2)), 
+            Some(Integer::from(-5)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
 
         assert_eq!(a.clone() + b.clone(), b, "Vertical addition failed");
         assert_eq!(b.clone() + a.clone(), b, "Vertical addition failed");
@@ -147,16 +181,51 @@ mod tests {
 
     #[test]
     fn test_addition_1() {
-        let a = EllipticPoint::new(Some(3), Some(7), 5, 7);
-        let b = EllipticPoint::new(Some(-1), Some(-1), 5, 7);
+        let a = EllipticPoint::new(
+            Some(Integer::from(3)), 
+            Some(Integer::from(7)), 
+            Integer::from(5), 
+            Integer::from(7));
+        let b = EllipticPoint::new(
+            Some(Integer::from(-1)), 
+            Some(Integer::from(-1)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
 
-        assert_eq!(a + b, EllipticPoint::new(Some(2), Some(-5), 5, 7), "Addition failed");
+        let result = EllipticPoint::new(
+            Some(Integer::from(2)), 
+            Some(Integer::from(-5)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
+
+        assert_eq!(
+            a + b, 
+            result, 
+            "Addition failed"
+        );
     }
 
     #[test]
     fn test_addition_2() {
-        let a = EllipticPoint::new(Some(-1), Some(-1), 5, 7);
+        let a = EllipticPoint::new(
+            Some(Integer::from(-1)), 
+            Some(Integer::from(-1)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
+        let b = EllipticPoint::new(
+            Some(Integer::from(18)), 
+            Some(Integer::from(77)), 
+            Integer::from(5), 
+            Integer::from(7)
+        );
 
-        assert_eq!(a.clone() + a.clone(), EllipticPoint::new(Some(18), Some(77), 5, 7), "Addition failed");
+        assert_eq!(
+            a.clone() + a.clone(), 
+            b,
+            "Addition failed"
+        );
     }
 }

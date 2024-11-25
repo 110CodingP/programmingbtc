@@ -1,4 +1,5 @@
 use std::{fmt::Debug, ops::Add};
+use rug::{ops::Pow, Integer};
 
 use finite_fields::FieldElement;
 
@@ -63,8 +64,8 @@ impl EllipticCurve {
             return None;
         }
 
-        let slope = (3 * self.x.clone().unwrap().num().pow(2) + self.a.num()) / (2 * self.y.clone().unwrap().num());
-        Some(slope)
+        let slope: Integer = (3 * self.x.clone().unwrap().num().pow(2) + self.a.num()) / (2 * self.y.clone().unwrap().num());
+        Some(slope.to_i32_wrapping())
     }
 }
 
@@ -107,8 +108,8 @@ impl Add for EllipticCurve {
             }
             // If the points are the same, then we need to find the tangent slope
             let slope = self.tangent_slope().unwrap();
-            let x_3 = slope.pow(2) - (2 * self.x.clone().unwrap().num());
-            let y_3 = (slope * (self.x.clone().unwrap().num() - x_3)) - self.y.clone().unwrap().num();
+            let x_3: Integer = slope.pow(2) - (2 * self.x.clone().unwrap().num());
+            let y_3 = (slope * (self.x.clone().unwrap().num() - x_3.clone())) - self.y.clone().unwrap().num();
 
             let point_3 = EllipticCurve::new(
                 Some(FieldElement::new(x_3, self.x.unwrap().order())), 
@@ -140,32 +141,84 @@ mod tests {
     use std::panic;
 
     use finite_fields::FieldElement;
+    use rug::Integer;
 
     use crate::EllipticCurve;
 
     #[test]
     fn test_on_curve() {
-        let prime = 223_i16;
-        let a = FieldElement::new(0, prime);
-        let b = FieldElement::new(7, prime);
+        let prime = Integer::from(223_i16);
+        let a = FieldElement::new(Integer::from(0), prime.clone());
+        let b = FieldElement::new(Integer::from(7), prime.clone());
 
-        let valid_points = [(192, 105), (17, 56), (1, 193)];
-        let invalid_points = [(200, 119), (42, 99)];
+        let valid_points = [
+            (Integer::from(192), Integer::from(105)), 
+            (Integer::from(17), Integer::from(56)), 
+            (Integer::from(1), Integer::from(193))
+        ];
+        let invalid_points = [
+            (Integer::from(200), Integer::from(119)), 
+            (Integer::from(42), Integer::from(99))
+        ];
 
         for (x_raw, y_raw) in valid_points.iter() {
-            let x = FieldElement::new(*x_raw, prime);
-            let y = FieldElement::new(*y_raw, prime);
+            let x = FieldElement::new(x_raw.clone(), prime.clone());
+            let y = FieldElement::new(y_raw.clone(), prime.clone());
             assert_eq!(EllipticCurve::new(Some(x), Some(y), a.clone(), b.clone()).is_valid(), true);
         }
 
         for (x_raw, y_raw) in invalid_points.iter() {
-            let x = FieldElement::new(*x_raw, prime);
-            let y = FieldElement::new(*y_raw, prime);
+            let x = FieldElement::new(x_raw.clone(), prime.clone());
+            let y = FieldElement::new(y_raw.clone(), prime.clone());
 
             let result = panic::catch_unwind(|| {
                 EllipticCurve::new(Some(x), Some(y), a.clone(), b.clone()).is_valid()
             });
             assert!(result.is_err(), "Point is not on the curve");
+        }
+    }
+
+    #[test]
+    fn test_add() {
+        let prime = Integer::from(223);
+
+        let a = FieldElement::new(Integer::from(0), prime.clone());
+        let b = FieldElement::new(Integer::from(7), prime.clone());
+
+        let points = [
+            (
+                FieldElement::new(Integer::from(192), prime.clone()), 
+                FieldElement::new(Integer::from(105), prime.clone()),
+                FieldElement::new(Integer::from(17), prime.clone()), 
+                FieldElement::new(Integer::from(56), prime.clone()),
+                FieldElement::new(Integer::from(170), prime.clone()), 
+                FieldElement::new(Integer::from(142), prime.clone())
+            ),
+            (
+                FieldElement::new(Integer::from(47), prime.clone()), 
+                FieldElement::new(Integer::from(71), prime.clone()),
+                FieldElement::new(Integer::from(117), prime.clone()), 
+                FieldElement::new(Integer::from(141), prime.clone()),
+                FieldElement::new(Integer::from(60), prime.clone()), 
+                FieldElement::new(Integer::from(139), prime.clone())
+            ),
+            (
+                FieldElement::new(Integer::from(143), prime.clone()), 
+                FieldElement::new(Integer::from(98), prime.clone()),
+                FieldElement::new(Integer::from(76), prime.clone()), 
+                FieldElement::new(Integer::from(66), prime.clone()),
+                FieldElement::new(Integer::from(47), prime.clone()), 
+                FieldElement::new(Integer::from(71), prime)
+            ),
+        ];
+
+        for (x1, y1, x2, y2, x3, y3) in points {
+            let point_a = EllipticCurve::new(Some(x1), Some(y1), a.clone(), b.clone());
+            let point_b = EllipticCurve::new(Some(x2), Some(y2), a.clone(), b.clone());
+            let point_3 = point_a.clone() + point_b.clone();
+
+            assert_eq!(point_3.x.unwrap().num(), x3.num());
+            assert_eq!(point_3.y.unwrap().num(), y3.num());
         }
     }
 }

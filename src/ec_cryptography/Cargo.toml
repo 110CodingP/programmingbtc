@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 finite_fields = { path = "../finite_fields" }
+rug = "1.26.1"
