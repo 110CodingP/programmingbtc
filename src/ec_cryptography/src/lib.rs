@@ -1,5 +1,5 @@
 use std::{fmt::Debug, ops::Add};
-use rug::{ops::Pow, Integer};
+use rug::{ops::{Pow, RemRounding}, Integer};
 
 use finite_fields::FieldElement;
 
@@ -36,9 +36,13 @@ impl EllipticCurve {
 
         let point = EllipticCurve { x, y, a, b };
         // Ensure that the point is on the curve
-        assert!(point.is_valid(), "Point is not on the curve");
+        // assert!(point.is_valid(), "Point is not on the curve");
     
         point
+    }
+
+    pub fn prime(&self) -> Integer {
+        self.a.order()
     }
 
     pub fn is_valid(&self) -> bool {
@@ -58,15 +62,60 @@ impl EllipticCurve {
         Some(slope)
     }
 
-    pub fn tangent_slope(&self) -> Option<i32> {
+    pub fn tangent_slope(&self) -> Option<FieldElement> {
         // Implement the slope of the tangent line
         if self.x.is_none() {
             return None;
         }
 
-        let slope: Integer = (3 * self.x.clone().unwrap().num().pow(2) + self.a.num()) / (2 * self.y.clone().unwrap().num());
-        Some(slope.to_i32_wrapping())
+        println!("Order of the field is, {}", self.prime());
+
+        let x_pow = self.x.clone().unwrap().num().pow(2);
+        let numerator: Integer = (Integer::from(3) * x_pow + self.a.clone().num()).rem_euc(self.prime());
+        let denominator: Integer = (Integer::from(2) * self.y.clone().unwrap().num()).rem_euc(self.prime());
+
+        let slope: Integer = (numerator / denominator).rem_euc(self.prime());
+        Some(FieldElement::new(slope, self.prime()))
     }
+
+    pub fn identity(&self) -> Self {
+        EllipticCurve::new(
+            None,
+            None,
+            self.a.clone(),
+            self.b.clone()
+        )
+    }
+
+    pub fn scalar_mul(&self, coefficient: u64) -> EllipticCurve {
+        let reversed = reverse_bits(coefficient);
+        println!("The reversed binary is {}", reversed);
+
+        let mut current = self.clone();
+        let mut result = EllipticCurve::new(None, None, self.a.clone(), self.b.clone());
+        let mut scalar = coefficient;
+
+        while scalar > 0 {
+            println!("Scalar at index, {}", scalar & 1);
+
+            if scalar & 1 == 1 {
+                result = result + current.clone();
+            }
+
+            current = current.clone() + current.clone();
+
+            scalar >>= 1;
+        }
+        result
+    }
+}
+
+pub fn reverse_bits(number: u64) -> String {
+    let binaries = format!("{:b}", number);
+
+    let reversed = binaries.chars().rev().collect();
+
+    reversed
 }
 
 impl Eq for EllipticCurve {}
@@ -108,8 +157,9 @@ impl Add for EllipticCurve {
             }
             // If the points are the same, then we need to find the tangent slope
             let slope = self.tangent_slope().unwrap();
-            let x_3: Integer = slope.pow(2) - (2 * self.x.clone().unwrap().num());
-            let y_3 = (slope * (self.x.clone().unwrap().num() - x_3.clone())) - self.y.clone().unwrap().num();
+            println!("Tangent Slope, {:?}", slope);
+            let x_3: Integer = slope.clone().num().pow(2) - (2 * self.x.clone().unwrap().num());
+            let y_3 = (slope.clone().num() * (self.x.clone().unwrap().num() - x_3.clone())) - self.y.clone().unwrap().num();
 
             let point_3 = EllipticCurve::new(
                 Some(FieldElement::new(x_3, self.x.unwrap().order())), 

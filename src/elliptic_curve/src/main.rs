@@ -29,9 +29,9 @@ fn main() {
     // println!("Point 1 is valid: {}", point_4.is_valid());
 
     let point_a = EllipticPoint::new(
-        Some(Integer::from(-1)),
-         Some(Integer::from(-1)), 
-         Integer::from(5), 
+        Some(Integer::from(47)),
+         Some(Integer::from(71)), 
+         Integer::from(0), 
         Integer::from(7)
     );
     println!("Poin A + Point A: {:?}", point_a.clone() + point_a);
