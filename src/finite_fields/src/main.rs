@@ -6,5 +6,5 @@ fn main() {
         Integer::from(5), 
         Integer::from(31)
     );
-    println!("Multiplication of terms, {}", 3 * field_a);
+    // println!("Multiplication of terms, {}", 3 * field_a);
 }

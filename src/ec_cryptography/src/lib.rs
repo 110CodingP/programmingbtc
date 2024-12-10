@@ -36,7 +36,7 @@ impl EllipticCurve {
 
         let point = EllipticCurve { x, y, a, b };
         // Ensure that the point is on the curve
-        // assert!(point.is_valid(), "Point is not on the curve");
+        assert!(point.is_valid(), "Point is not on the curve");
     
         point
     }
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_on_curve() {
-        let prime = Integer::from(223_i16);
+        let prime = Integer::from(223);
         let a = FieldElement::new(Integer::from(0), prime.clone());
         let b = FieldElement::new(Integer::from(7), prime.clone());
 
