@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-finite_fields = { path = "../finite_fields" }
 rug = "1.26.1"
+sha256 = "1.5.0"
+
+finite_fields = { path = "../finite_fields" }

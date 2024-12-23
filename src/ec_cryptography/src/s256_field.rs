@@ -1,6 +1,7 @@
 use finite_fields::FieldElement;
 use rug::{Integer, Complete};
 use rug::ops::Pow;
+use std::fmt::{Debug, Formatter};
 
 use crate::EllipticCurve;
 
@@ -12,6 +13,42 @@ pub struct S256Field {
 impl S256Field {
     pub fn new() -> S256Field {
         S256Field { x: None, y: None }
+    }
+
+    pub fn verify(&self, z: Integer, signature: Signature) -> bool {
+        let s = FieldElement::new(signature.s.clone(), Self::order());
+        let z = FieldElement::new(z, Self::order());
+        let r = FieldElement::new(signature.r.clone(), Self::order());
+
+        let u = z / s.clone();
+        let v = r.clone() / s;
+
+        let generator = secp_generator_point();
+        let point = self.to_point();
+
+        let result = generator.scalar_mul(u.num()) + point.scalar_mul(v.num());
+
+        result.x.unwrap().num() == r.num()
+    }
+
+    pub fn to_point(&self) -> EllipticCurve {
+        let prime = Integer::from(2).pow(256) - Integer::from(2).pow(32) - Integer::from(977);
+
+        EllipticCurve::new(
+            self.x.clone(),
+            self.y.clone(),
+            FieldElement::new(Integer::ZERO, prime.clone()),
+            FieldElement::new(Integer::from(7), prime)
+        )
+    }
+
+    pub fn order() -> Integer {
+        Integer::parse_radix(
+            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
+             16
+        )
+            .unwrap()
+            .complete()
     }
 }
 
@@ -33,4 +70,21 @@ pub fn secp_generator_point() -> EllipticCurve {
         a.clone(),
         b.clone()
     )
+}
+
+pub struct Signature {
+    r: Integer,
+    s: Integer,
+}
+
+impl Debug for Signature {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "Signature(r={}, s={})", self.r, self.s)
+    }
+}
+
+impl Signature {
+    pub fn new(r: Integer, s: Integer) -> Signature {
+        Signature { r, s }
+    }
 }
