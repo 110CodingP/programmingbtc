@@ -4,6 +4,8 @@ use rug::{integer::Order, ops::{Pow, RemRounding}, Integer};
 mod s256_field;
 pub mod traits;
 
+pub mod helper;
+
 use traits::Serializer;
 use finite_fields::FieldElement;
 
@@ -227,12 +229,13 @@ impl traits::Serializer for EllipticCurve {
 
 #[cfg(test)]
 mod tests {
-    use std::{panic, result};
+    use std::{panic};
 
     use finite_fields::FieldElement;
-    use rug::{ops::Pow, Complete, Integer};
+    use rug::{integer::Order, ops::Pow, rand::RandState, Complete, Integer};
+    use sha256::digest;
 
-    use crate::{s256_field::secp_generator_point, EllipticCurve};
+    use crate::{helper::double_hash, s256_field::secp_generator_point, EllipticCurve};
 
     #[test]
     fn test_on_curve() {
@@ -350,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn test_secp_signature() {
+    fn test_secp_signature_verfication() {
         /*
         ** Given (r, s) which are coordinates of our signature,
         ** Given z (hash of the thing being signed) and,
@@ -397,5 +400,31 @@ mod tests {
         let result = u_point + v_point;
 
         assert_eq!(result.x.unwrap().num(), r.num(), "Points should be equal");
+    }
+
+    #[test]
+    fn test_secp_signing() {
+        // To implement signatures, we must have z, a scalar integer
+        // choose a random integer k
+        // calculate R = kG and r = R.x
+        // calculate s = (z + re)/k
+        // The signature is (r, s)
+
+        // let's generate a random k
+        let random_int = Integer::from(RandState::new_mersenne_twister().bits(32));
+        
+        let secret_hash = double_hash("my message");
+        let secret = Integer::from_digits(&secret_hash, Order::Msf);
+        
+        let message_hash = double_hash("my message");
+        let message = Integer::from_digits(&message_hash, Order::Msf);
+       
+       
+        let generator_point = secp_generator_point();
+        let signature_point = generator_point.scalar_mul(random_int.clone());
+        let s = (message + (secret.clone() * signature_point.x.unwrap().num())) / random_int;
+
+        let point = secp_generator_point().scalar_mul(secret);
+        println!("The signed point is {:?}", point);
     }
 }
