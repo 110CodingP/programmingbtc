@@ -5,6 +5,7 @@ mod s256_field;
 pub mod traits;
 
 pub mod helper;
+pub mod serializer;
 
 use traits::Serializer;
 use finite_fields::FieldElement;
@@ -211,29 +212,12 @@ impl Add for EllipticCurve {
     }
 }
 
-impl traits::Serializer for EllipticCurve {
-    fn sec(&self) -> Vec<u8> {
-        // Uncompressed format serialization of a a pubkey
-        let prefix = b"0x04";
-        let serialized_x = self.x.clone().unwrap().num().to_digits::<u8>(Order::LsfLe);
-        let serialized_y = self.y.clone().unwrap().num().to_digits::<u8>(Order::LsfLe);
-
-        let mut serialized = Vec::new();
-        serialized.extend_from_slice(prefix);
-        serialized.extend_from_slice(&serialized_x);
-        serialized.extend_from_slice(&serialized_y);
-
-        serialized
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{panic};
 
     use finite_fields::FieldElement;
     use rug::{integer::Order, ops::Pow, rand::RandState, Complete, Integer};
-    use sha256::digest;
 
     use crate::{helper::double_hash, s256_field::secp_generator_point, EllipticCurve};
 

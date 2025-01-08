@@ -1,4 +1,5 @@
 use finite_fields::FieldElement;
+use rug::integer::Order;
 use rug::{Integer, Complete};
 use rug::ops::Pow;
 use std::fmt::{Debug, Formatter};
@@ -86,5 +87,61 @@ impl Debug for Signature {
 impl Signature {
     pub fn new(r: Integer, s: Integer) -> Signature {
         Signature { r, s }
+    }
+
+    /// This is the Distingished Encoding Rule for encoding Signatures
+    pub fn der(&self) -> String {
+        let prefix = "30";
+
+        // calculate the length of the signature
+        let signature_length = self.length();
+        println!("Signature length: {}", signature_length);
+
+        let (r_length, r) = self.der_integer_length(self.r.to_digits::<u8>(Order::MsfBe));
+        let (s_length, s) = self.der_integer_length(self.s.to_digits::<u8>(Order::MsfBe));
+        println!("r length: {}", r_length);
+        println!("s length: {}", s_length);
+
+        prefix.to_string()
+    }
+
+    pub fn length(&self) -> usize {
+        let r = self.r.to_digits::<u8>(Order::MsfBe);
+        let s = self.s.to_digits::<u8>(Order::MsfBe);
+
+        let r_len = self.der_integer_length(r);
+        let s_len = self.der_integer_length(s);
+
+        1 + 1 + r_len.0 + s_len.0
+    }
+
+    pub fn der_integer_length(&self, mut data: Vec<u8>) -> (usize, Vec<u8>) {
+        let mut length = data.len();
+        if data[0] & 0x80 >= 0x80 {
+            println!("Data: {:?}", data);
+            data.insert(0, 00);
+            length += 1;
+        }
+
+        (length, data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rug::{integer::Order, Integer};
+
+    use super::Signature;
+
+    #[test]
+    fn test_der_encryption() {
+        let signature = Signature::new(
+            Integer::from_str_radix("37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6", 16).unwrap(),
+            Integer::from_str_radix("8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec", 16).unwrap()
+        );
+
+        let der_r = signature.der_integer_length(signature.r.to_digits::<u8>(Order::MsfBe));
+        println!("DER R length: {}", der_r.0);
+        println!("DER R value: {:?}", der_r.1);
     }
 }

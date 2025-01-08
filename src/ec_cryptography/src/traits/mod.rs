@@ -1,3 +1,3 @@
 pub trait Serializer {
-    fn sec(&self) -> Vec<u8>;
+    fn sec(&self, is_compressed: bool) -> String;
 }
