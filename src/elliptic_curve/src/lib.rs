@@ -1,7 +1,12 @@
 use std::{fmt::Debug, ops::Add};
 
+use rug::integer::Order;
 use rug::Integer;
 use rug::ops::Pow;
+
+use traits::Serializer;
+
+pub mod traits;
 
 /// While coding an elliptic curve, we are mostly interested in the Point on the curve.
 /// The points suffice because they will form a finite field which is useful in ECC operations
@@ -130,6 +135,21 @@ impl Add for EllipticPoint {
     }
 }
 
+impl traits::Serializer for EllipticPoint {
+    fn sec(&self) -> Vec<u8> {
+        // Uncompressed format serialization of a a pubkey
+        let prefix = b"0x04";
+        let serialized_x = self.x.clone().unwrap().to_digits::<u8>(Order::LsfLe);
+        let serialized_y = self.y.clone().unwrap().to_digits::<u8>(Order::LsfLe);
+
+        let mut serialized = Vec::new();
+        serialized.extend_from_slice(prefix);
+        serialized.extend_from_slice(&serialized_x);
+        serialized.extend_from_slice(&serialized_y);
+
+        serialized
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,10 +1,10 @@
 use std::{fmt::Debug, ops::{Add, Div, Mul, Rem, Sub}};
-use rug::ops::{Pow, RemRounding};
+use rug::{integer::IsPrime, ops::{Pow, RemRounding}};
 
 use helpers::is_prime;
 use rug::{Integer, Assign};
 
-mod helpers;
+pub mod helpers;
 
 /// A FieldElement is a representation of an element in a finite field.
 #[derive(Clone)]
@@ -16,7 +16,8 @@ pub struct FieldElement {
 impl FieldElement {
     /// Creates a new field element 
     pub fn new(num: Integer, prime: Integer) -> FieldElement {
-        assert!(is_prime(prime.clone()), "Number must be prime");
+        // assert!(is_prime(prime.clone()), "Number must be prime");
+        assert_ne!(prime.is_probably_prime(30), IsPrime::No, "Number must be prime");
 
         FieldElement { num: num % prime.clone(), prime }
     }
@@ -29,15 +30,19 @@ impl FieldElement {
         self.prime.clone()
     }
 
-    pub fn pow(&self, exponent: i32) -> FieldElement {
+    pub fn pow(&self, exponent: Integer) -> Result<FieldElement, ()> {
         let expo = if exponent > 0 {
             exponent
         } else { 
-            exponent + (self.prime.clone().to_i32_wrapping() - 1)
+            exponent + (self.prime.clone() - Integer::from(1))
         };
         
-        let num = self.num.clone().pow(expo as u32).rem_euc(self.prime.clone());
-        FieldElement::new(num, self.prime.clone())
+        match self.num.clone()
+            .pow_mod(&expo, &self.prime) 
+            {
+                Ok(num) => Ok(FieldElement::new(num.rem_euc(self.prime.clone()), self.prime.clone())),
+                Err(_) => Err(())
+            }
     }
 
     fn is_equal(&self, other: &FieldElement) -> bool {
@@ -106,8 +111,7 @@ impl Div for FieldElement {
     fn div(self, other: FieldElement) -> FieldElement {
         assert_eq!(self.prime, other.prime, "Primes must be equal");
 
-        let divisor = other.pow(other.prime.clone().to_i32_wrapping() - 2);
-        println!("Divisor: {:?}", divisor);
+        let divisor = other.pow(other.prime.clone() - Integer::from(2)).unwrap();
 
         let num = (self.num * divisor.num).rem_euc(self.prime.clone());
         FieldElement::new(num, self.prime)
@@ -160,7 +164,7 @@ mod tests {
         let a = FieldElement::new(
             Integer::from(17), 
             Integer::from(31)
-        );;
+        );
         let b = FieldElement::new(Integer::from(21), Integer::from(29));
         let result = panic::catch_unwind(|| a + b);
         assert!(result.is_err(), "Primes must be equal");
@@ -209,11 +213,11 @@ mod tests {
     #[test]
     fn test_pow() {
         let a = FieldElement::new(Integer::from(17), Integer::from(31));
-        assert_eq!(a.pow(3), FieldElement::new(Integer::from(15), Integer::from(31)));
+        assert_eq!(a.pow(Integer::from(3)), Ok(FieldElement::new(Integer::from(15), Integer::from(31))));
 
         let a = FieldElement::new(Integer::from(5), Integer::from(31));
         let b = FieldElement::new(Integer::from(18), Integer::from(31));
-        assert_eq!(a.pow(5) * b, FieldElement::new(Integer::from(16), Integer::from(31)));
+        assert_eq!(a.pow(Integer::from(5)).unwrap() * b, FieldElement::new(Integer::from(16), Integer::from(31)));
     }
 
     #[test]
@@ -223,10 +227,10 @@ mod tests {
         assert_eq!(a / b, FieldElement::new(Integer::from(4), Integer::from(31)));
 
         let a = FieldElement::new(Integer::from(17), Integer::from(31));
-        assert_eq!(a.pow(-3), FieldElement::new(Integer::from(29), Integer::from(31)));
+        assert_eq!(a.pow(Integer::from(-3)), Ok(FieldElement::new(Integer::from(29), Integer::from(31))));
 
         let a = FieldElement::new(Integer::from(4), Integer::from(31));
         let b = FieldElement::new(Integer::from(11), Integer::from(31));
-        assert_eq!(a.pow(-4) * b, FieldElement::new(Integer::from(13), Integer::from(31)));
+        assert_eq!(a.pow(Integer::from(-4)).unwrap() * b, FieldElement::new(Integer::from(13), Integer::from(31)));
     }
 }
