@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Clone, PartialEq, Eq, Deserialize)]
 pub struct Version(u8);
 
 impl Debug for Version {
@@ -18,5 +18,9 @@ impl Version {
 
     pub fn parse(&self) -> String {
         format!("{:08b}", (self.0 << 6) | 0)
+    }
+
+    pub fn from_vec(version: &[u8]) -> Version {
+        Version(version[0])
     }
 }
