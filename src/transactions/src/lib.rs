@@ -9,6 +9,8 @@ pub mod input;
 mod output;
 pub mod utils;
 
+use sha2::{Sha256, Digest};
+use utils::TxFetcher;
 use version::Version;
 
 #[derive(Debug)]
@@ -17,13 +19,13 @@ pub enum TransactionError {
 }
 
 /// We construct a Transaction
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Transaction {
     version: Version,
-    inputs: Vec<TxIn>,
+    pub inputs: Vec<TxIn>,
     outputs: Vec<TxOut>,
     locktime: u32,
-    testnet: bool,
+    pub testnet: bool,
 }
 
 impl Display for Transaction {
@@ -48,35 +50,82 @@ impl Display for Transaction {
 impl Transaction {
     // Create a human readable hex of the transaction hash
     pub fn id(&self) -> String {
-        "".to_string()
+        self.hash()
+            .iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<String>()
     }
 
     // create a hash of the transaction
     pub fn hash(&self) -> Vec<u8> {
-        vec![]
+        let serialized = self.serialize();
+        
+        // setup the hasher
+        let mut hasher = Sha256::new();
+
+        // hash the serialized transaction
+        hasher.update(serialized);
+
+        // return the hash
+        let hash = hasher.finalize();
+        hash.to_vec()
     }
 
     pub fn version(&self) -> Version {
         self.version.clone()
     }
 
-    fn get_url(&self) -> &str {
-        if self.testnet {
-            "https://blockstream.info/testnet/api/"
-        } else {
-            "https://blockstream.info/api/"
+    pub fn fee(&self) -> u64 {
+        let mut input_value = 0;    // will hold the accumulation of all inputs
+        let mut output_value = 0;   // will hold the accumulation of all outputs
+
+        for input in &self.inputs {
+            input_value += input.value(self.testnet);
         }
-    }
-
-    fn fee() -> u64 {
-        0
-    }
-
-    fn fetch_tx(tx_id: String, testnet: bool, fresh: bool) {
+        println!("Input value: {}", input_value);
         
+        for output in &self.outputs {
+            output_value += output.value;
+        }
+        println!("Output value: {}", output_value);
+
+        input_value - output_value
     }
 
-    pub fn parse(raw: &str) -> Result<Transaction, TransactionError> {
+    pub fn serialize(&self) -> String {
+        let mut serialized_tx = String::from("");
+
+        // serialize the version
+        let version = self.version.parse();
+        serialized_tx.push_str(&version);
+
+        // serialize the input length
+        let input_count = utils::encode_varints(self.inputs.len() as u64);
+        serialized_tx.push_str(&input_count.iter().map(|byte| format!("{:02x}", byte)).collect::<String>());
+        // serialize the tx_inputs
+        for input in &self.inputs {
+            let serialized_inputs = input.serialize();
+            serialized_tx.push_str(&serialized_inputs);
+        }
+
+        // serialize the output length
+        let output_count = utils::encode_varints(self.outputs.len() as u64);
+        serialized_tx.push_str(&output_count.iter().map(|byte| format!("{:02x}", byte)).collect::<String>());
+        
+        // serialize the transaction outputs
+        for output in &self.outputs {
+            let serialized_outputs = output.serialize();
+            serialized_tx.push_str(&serialized_outputs);
+        }
+
+        // serialize the locktime
+        let locktime = self.locktime.to_le_bytes().iter().map(|byte| format!("{:02x}", byte)).collect::<String>();
+        serialized_tx.push_str(&locktime);
+
+        serialized_tx
+    }
+
+    pub fn parse(raw: &str, testnet: bool) -> Result<Transaction, TransactionError> {
         let mut data_count = 0;
         // Parse the version from the transactiob, first 4 bytes
         let tx_bytes = Rc::new(Integer::from_str_radix(
@@ -179,7 +228,7 @@ impl Transaction {
             inputs: transactions,
             outputs,
             locktime: u32::from_le_bytes(locktime),
-            testnet: true,
+            testnet,
         })
     }
 }
@@ -194,14 +243,14 @@ mod tests {
 
     #[test]
     fn test_parse_version() {
-        let transaction = Transaction::parse(raw_tx());
+        let transaction = Transaction::parse(raw_tx(), true);
         assert!(transaction.is_ok(), "Transaction parse should succeed");
         assert_eq!(transaction.unwrap().version, Version::new(1));
     }
 
     #[test]
     fn test_parse_inputs() {        
-        let transaction = Transaction::parse(raw_tx());
+        let transaction = Transaction::parse(raw_tx(), true);
         assert!(transaction.is_ok(), "Transaction parse should succeed");
         let tx = transaction.unwrap();
         
@@ -215,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_parse_outputs() {        
-        let transaction = Transaction::parse(raw_tx());
+        let transaction = Transaction::parse(raw_tx(), true);
         assert!(transaction.is_ok(), "Transaction parse should succeed");
 
         let transaction = transaction.unwrap();
@@ -229,10 +278,20 @@ mod tests {
 
     #[test]
     fn test_parse_tx_locktime() {
-        let transaction = Transaction::parse(raw_tx());
+        let transaction = Transaction::parse(raw_tx(), true);
         assert!(transaction.is_ok(), "Transaction parse should succeed");
 
         let transaction = transaction.unwrap();
         assert_eq!(transaction.locktime, 410393);
+    }
+
+    #[test]
+    fn test_tx_fee() {
+        let transaction = Transaction::parse(raw_tx(), false);
+        assert!(transaction.is_ok(), "Transaction parse should succeed");
+
+        let tx = transaction.unwrap();
+        let fee = tx.fee();
+        assert_eq!(fee, 40000);
     }
 }

@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 
 use crate::utils::parse_varints;
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Deserialize)]
 pub struct TxOut {
     pub value: u64,
     pub script_pubkey: String,
@@ -14,6 +14,23 @@ impl TxOut {
             value,
             script_pubkey,
         }
+    }
+
+    pub fn serialize(&self) -> String {
+        let mut serialized = String::from("");
+
+        // serialize the amount
+        let value = self.value
+            .to_le_bytes()
+            .iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<String>();
+        serialized.push_str(&value);
+
+        // serialize the script_pubkey
+        serialized.push_str(&self.script_pubkey);
+
+        serialized
     }
 
     pub fn parse_from_bytes(bytes: &[u8]) -> Vec<TxOut> {

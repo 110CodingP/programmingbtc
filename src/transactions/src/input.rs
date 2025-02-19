@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
+use rug::Integer;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+use crate::utils::TxFetcher;
+
+#[derive(Debug, Default, Deserialize)]
 pub struct PrevOutput {
     pub txid: String,
     pub index: u64,
@@ -38,7 +41,7 @@ impl Sequence {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct TxIn {
     pub previous_output: PrevOutput,
     pub script_sig: Option<String>,
@@ -52,6 +55,12 @@ impl TxIn {
             script_sig: sig,
             sequence,
         }
+    }
+
+    pub fn value(&self, testnet: bool) -> u64 {
+        let mut tx_fetcher = TxFetcher::new(testnet);
+        let tx = tx_fetcher.fetch(self.previous_output.txid.clone(), false);
+        tx.outputs[self.previous_output.index as usize].value
     }
 
     pub fn parse_from_bytes(bytes: &[u8]) -> Vec<TxIn> {
@@ -75,5 +84,44 @@ impl TxIn {
         });
 
         txs
+    }
+
+    pub fn serialize(&self) -> String {
+        let mut serialized = String::from("");
+
+        // serialize the prev_tx_index
+        let mut prev_id = Integer::from_str_radix(&self.previous_output.txid, 16).unwrap().to_digits::<u8>(rug::integer::Order::MsfLe);
+        prev_id.reverse();
+        serialized.push_str(
+            &prev_id.iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<String>()
+        );
+
+        // serialize the prev_tx_index
+        let index = self.previous_output.index as u32;
+        serialized.push_str(
+            &index.to_le_bytes()
+            .iter()
+            .map(|byte| format!("{:02x}", (byte << 2) | 0))
+            .collect::<String>()
+        );
+
+        // serialize the scriptsig
+        let scriptsig = self.script_sig.as_ref().unwrap();
+        serialized.push_str(
+            scriptsig
+        );
+
+        // serialize the sequence
+        let sequence = self.sequence.0;
+        serialized.push_str(
+            &sequence.to_le_bytes()
+            .iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<String>()
+        );
+
+        serialized
     }
 }
