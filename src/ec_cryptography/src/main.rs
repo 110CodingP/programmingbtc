@@ -46,7 +46,7 @@ fn main() {
     let y = FieldElement::new(gy, prime.clone());
 
     // let point = 
-    let generator = EllipticCurve::new(
+    let _generator = EllipticCurve::new(
         Some(x.clone()),
         Some(y.clone()),
         a.clone(),
@@ -54,9 +54,4 @@ fn main() {
     );
     // let scalar = Integer::parse_radix("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16).unwrap().complete();
 
-    let public_key_5000 = generator.scalar_mul(Integer::from(5000));
-    let serialized_key = public_key_5000.sec();
-    let serialized_key_string: String = serialized_key.iter().map(|byte| format!("{:02x}", byte)).collect();
-
-    println!("Serialized Public key for 5000 is: {:?}", serialized_key_string);
 }
